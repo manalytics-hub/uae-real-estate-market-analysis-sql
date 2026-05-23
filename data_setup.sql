@@ -1,7 +1,7 @@
 -- Clean old tables if they exist to ensure no duplication of primary keys.
-DROP TABLE IF EXISTS dubai-abudhabi properties;
+DROP TABLE IF EXISTS dubai_properties;
 
-CREATE TABLE dubai-abudhabi properties (
+CREATE TABLE dubai_properties (
     property_id INT PRIMARY KEY,
     location VARCHAR(100),
     property_type VARCHAR(50),
@@ -11,10 +11,8 @@ CREATE TABLE dubai-abudhabi properties (
     status VARCHAR(20),
     developer_name VARCHAR(100)
 );
--- ====================================================================
--- INSERTING DATA INTO dubai-abudhabi properties (200 Rows)
--- ====================================================================
-INSERT INTO dubai-abudhabi properties VALUES
+
+INSERT INTO dubai_properties VALUES
 (101, 'Dubai Marina', 'Apartment', 2500000, 1200, 2, 'Ready', 'Emaar Properties'),
 (102, 'Downtown Dubai', 'Apartment', 4200000, 1600, 3, 'Ready', 'Emaar Properties'),
 (103, 'Palm Jumeirah', 'Villa', 12500000, 5500, 5, 'Ready', 'Nakheel'),
@@ -115,6 +113,11 @@ INSERT INTO dubai-abudhabi properties VALUES
 (198, 'Green Community', 'Villa', 4900000, 4100, 4, 'Ready', 'Properties Investment'),
 (199, 'Discovery Gardens', 'Apartment', 550000, 680, 1, 'Ready', 'Nakheel'),
 (200, 'Dubai Silicon Oasis', 'Apartment', 690000, 800, 1, 'Ready', 'Local Developer');
+
+-- ====================================================================
+-- INSERTING DATA INTO ABU DHABI PROPERTIES (100 Rows)
+-- ====================================================================
+INSERT INTO abudhabi_properties (property_id, location, property_type, price, size_sqft, bedrooms, status, developer_name) VALUES
 (201, 'Yas Island', 'Apartment', 1900000.00, 1150, 2, 'Ready', 'Aldar Properties'),
 (202, 'Saadiyat Island', 'Villa', 9500000.00, 4800, 4, 'Ready', 'Aldar Properties'),
 (203, 'Al Reem Island', 'Apartment', 1200000.00, 900, 1, 'Ready', 'Tamouh'),
