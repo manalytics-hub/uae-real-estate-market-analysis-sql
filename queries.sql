@@ -105,3 +105,30 @@ SELECT
     bedrooms 
 FROM 
     abudhabi_properties;
+
+-- --------------------------------------------------------------------
+-- TASK 6: Enhance the format of data.
+-- --------------------------------------------------------------------
+
+-- 1. Standardize text input casing and spacing
+SELECT UPPER(TRIM(location)) AS clean_location FROM dubai_properties;
+SELECT LOWER(TRIM(status)) AS clean_status FROM abudhabi_properties;
+
+-- 2. Extract substrings and count lengths
+SELECT LEFT(developer_name, 10) AS short_dev_name FROM abudhabi_properties;
+SELECT RIGHT(property_id, 5) AS short_id FROM dubai_properties;
+SELECT LENGTH(property_type) AS text_len FROM dubai_properties;
+
+-- 3. Combine strings together
+SELECT CONCAT(location, ' - ', property_type) AS property_full_title FROM dubai_properties;
+
+-- 4. Locate characters and find positions
+SELECT POSITION('penthouse' IN LOWER(property_type)) AS keyword_index FROM dubai_properties;
+SELECT INSTR(LOWER(property_type), 'villa') AS keyword_position FROM abudhabi_properties;
+
+-- 5. Replace characters within a string
+SELECT REPLACE(location, 'Marina', 'Harbour') AS updated_location FROM dubai_properties;
+
+-- 6. Combine multiple functions together
+SELECT CONCAT(LEFT(developer_name, 12), '...') AS visual_title FROM abudhabi_properties;
+
