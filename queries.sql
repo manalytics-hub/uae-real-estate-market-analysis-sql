@@ -138,8 +138,6 @@ SELECT CONCAT(LEFT(developer_name, 12), '...') AS visual_title FROM abudhabi_pro
 -- ====================================================================
 
 -- 7.1 SUM() - Total market value by property type
--- OBJECTIVE: Calculate total investment value for each property type
--- TECHNIQUE: SUM() with GROUP BY for portfolio analysis
 SELECT 
     property_type,
     COUNT(property_id) AS property_count,
@@ -154,15 +152,12 @@ ORDER BY
 
 
 -- 7.2 MAX() & MIN() - Price range analysis by location
--- OBJECTIVE: Identify price boundaries in premium areas
--- TECHNIQUE: MAX() and MIN() for market extremes
 SELECT 
     location,
     COUNT(property_id) AS total_listings,
     MIN(price) AS lowest_price,
     MAX(price) AS highest_price,
-    (MAX(price) - MIN(price)) AS price_range,
-    ROUND((MAX(price) - MIN(price)) / MIN(price) * 100, 2) AS price_variance_percent
+    (MAX(price) - MIN(price)) AS price_range
 FROM 
     dubai_properties
 GROUP BY 
@@ -174,8 +169,6 @@ ORDER BY
 
 
 -- 7.3 AVG() - Average metrics by developer performance
--- OBJECTIVE: Evaluate developer pricing strategy
--- TECHNIQUE: AVG() for performance benchmarking
 SELECT 
     developer_name,
     COUNT(property_id) AS properties_listed,
@@ -193,14 +186,11 @@ ORDER BY
 
 
 -- 7.4 COUNT() - Market composition and distribution
--- OBJECTIVE: Analyze property type distribution across emirates
--- TECHNIQUE: COUNT() with DISTINCT for uniqueness metrics
 SELECT 
     property_type,
     COUNT(*) AS total_properties,
     COUNT(DISTINCT developer_name) AS unique_developers,
-    COUNT(DISTINCT location) AS unique_locations,
-    ROUND(100.0 * COUNT(*) / (SELECT COUNT(*) FROM dubai_properties), 2) AS market_share_percent
+    COUNT(DISTINCT location) AS unique_locations
 FROM 
     dubai_properties
 GROUP BY 
@@ -210,8 +200,6 @@ ORDER BY
 
 
 -- 7.5 Combined Aggregates - Comprehensive market dashboard
--- OBJECTIVE: Multi-dimensional analysis for strategic insights
--- TECHNIQUE: Multiple aggregate functions in single query
 SELECT 
     bedrooms,
     property_type,
@@ -219,9 +207,7 @@ SELECT
     MIN(price) AS min_price,
     MAX(price) AS max_price,
     ROUND(AVG(price), 2) AS avg_price,
-    ROUND(SUM(price) / 1000000, 2) AS total_value_millions,
-    ROUND(AVG(size_sqft), 2) AS avg_sqft,
-    ROUND(AVG(price / size_sqft), 2) AS avg_price_sqft
+    ROUND(SUM(price) / 1000000, 2) AS total_value_millions
 FROM 
     dubai_properties
 WHERE 
@@ -236,8 +222,6 @@ ORDER BY
 
 
 -- 7.6 Cross-Emirate Aggregate Comparison
--- OBJECTIVE: Compare market metrics between Dubai and Abu Dhabi
--- TECHNIQUE: Union of separate aggregates for comparative analysis
 SELECT 
     'Dubai' AS emirate,
     COUNT(property_id) AS total_properties,
@@ -262,17 +246,11 @@ FROM
 
 
 -- 7.7 Location Performance Scorecard
--- OBJECTIVE: Rank locations by multiple metrics
--- TECHNIQUE: Nested aggregates with ROUND() for precision
 SELECT 
     location,
     COUNT(property_id) AS listing_count,
     ROUND(AVG(price), 2) AS avg_price,
-    ROUND(SUM(price) / 1000000, 2) AS total_market_value_millions,
-    ROUND(AVG(bedrooms), 1) AS avg_bedrooms,
-    ROUND(AVG(size_sqft), 2) AS avg_property_size,
-    COUNT(DISTINCT developer_name) AS developer_count,
-    ROUND((COUNT(DISTINCT status) - 1), 0) AS status_variety
+    ROUND(SUM(price) / 1000000, 2) AS total_market_value_millions
 FROM 
     dubai_properties
 GROUP BY 
@@ -283,216 +261,52 @@ LIMIT 10;
 
 -- ====================================================================
 -- TASK 8: Window Functions - Rank Functions Analysis
--- OBJECTIVE: Apply ranking and analytical window functions for competitive analysis.
--- TECHNIQUES: ROW_NUMBER, RANK, DENSE_RANK, NTILE for market positioning
+-- OBJECTIVE: Apply ranking functions for market positioning analysis.
+-- TECHNIQUES: ROW_NUMBER, RANK, DENSE_RANK for competitive analysis
 -- ====================================================================
 
--- 8.1 ROW_NUMBER() - Unique Sequential Ranking
--- OBJECTIVE: Assign unique row numbers to properties ordered by price
--- TECHNIQUE: ROW_NUMBER() with PARTITION BY for category-based ranking
--- USE CASE: Identify top 3 most expensive properties in each location
+-- 8.1 ROW_NUMBER() - Top Properties by Price in Each Location
+-- OBJECTIVE: Identify top 3 most expensive properties in each location
 SELECT 
     property_id,
     location,
     property_type,
     price,
-    ROW_NUMBER() OVER (PARTITION BY location ORDER BY price DESC) AS price_rank_in_location,
-    ROW_NUMBER() OVER (PARTITION BY property_type ORDER BY price DESC) AS price_rank_by_type
+    ROW_NUMBER() OVER (PARTITION BY location ORDER BY price DESC) AS price_rank
 FROM 
     dubai_properties
 WHERE 
-    ROW_NUMBER() OVER (PARTITION BY location ORDER BY price DESC) <= 3;
+    status = 'Ready'
+ORDER BY 
+    location, 
+    price_rank;
 
 
--- 8.2 RANK() - Handle Ties with Gaps
--- OBJECTIVE: Rank properties by price, allowing ties and gaps
--- TECHNIQUE: RANK() for competitive positioning analysis
--- USE CASE: Find developers' market position based on average property price
+-- 8.2 RANK() - Developer Ranking by Average Price
+-- OBJECTIVE: Rank developers based on their average property price
 SELECT 
     developer_name,
+    COUNT(property_id) AS properties_count,
     ROUND(AVG(price), 2) AS avg_price,
-    RANK() OVER (ORDER BY AVG(price) DESC) AS developer_price_rank,
-    COUNT(property_id) AS property_count
+    RANK() OVER (ORDER BY AVG(price) DESC) AS price_rank
 FROM 
     dubai_properties
 GROUP BY 
     developer_name
 HAVING 
-    COUNT(property_id) >= 3
+    COUNT(property_id) >= 5
 ORDER BY 
-    developer_price_rank;
+    price_rank;
 
 
--- 8.3 DENSE_RANK() - Consecutive Ranking Without Gaps
--- OBJECTIVE: Rank locations by market value, no gaps in ranking
--- TECHNIQUE: DENSE_RANK() for tier classification
--- USE CASE: Identify tier-1, tier-2, and tier-3 market locations
+-- 8.3 DENSE_RANK() - Market Tier Classification
+-- OBJECTIVE: Classify locations into market tiers (Tier 1, 2, 3, etc.)
+-- Using DENSE_RANK to avoid gaps in ranking
 SELECT 
     location,
-    ROUND(SUM(price) / 1000000, 2) AS total_market_value_millions,
-    COUNT(property_id) AS listing_count,
-    DENSE_RANK() OVER (ORDER BY SUM(price) DESC) AS market_tier,
-    CASE 
-        WHEN DENSE_RANK() OVER (ORDER BY SUM(price) DESC) = 1 THEN 'Premium Tier'
-        WHEN DENSE_RANK() OVER (ORDER BY SUM(price) DESC) <= 5 THEN 'Mid Tier'
-        ELSE 'Entry Tier'
-    END AS tier_classification
-FROM 
-    dubai_properties
-GROUP BY 
-    location
-ORDER BY 
-    market_tier;
-
-
--- 8.4 NTILE() - Quartile & Percentile Distribution
--- OBJECTIVE: Segment properties into quartiles by price
--- TECHNIQUE: NTILE(4) for quantile analysis
--- USE CASE: Price bracket segmentation for investment strategy
-SELECT 
-    property_id,
-    location,
-    property_type,
-    price,
-    bedrooms,
-    NTILE(4) OVER (ORDER BY price) AS price_quartile,
-    CASE 
-        WHEN NTILE(4) OVER (ORDER BY price) = 1 THEN 'Budget'
-        WHEN NTILE(4) OVER (ORDER BY price) = 2 THEN 'Standard'
-        WHEN NTILE(4) OVER (ORDER BY price) = 3 THEN 'Premium'
-        WHEN NTILE(4) OVER (ORDER BY price) = 4 THEN 'Luxury'
-    END AS price_segment
-FROM 
-    dubai_properties
-WHERE 
-    status = 'Ready';
-
-
--- 8.5 Combined Ranking Functions - Developer Performance Dashboard
--- OBJECTIVE: Comprehensive ranking analysis across multiple dimensions
--- TECHNIQUE: Multiple ranking functions in single query
--- USE CASE: Identify top-performing developers in different segments
-SELECT 
-    developer_name,
-    property_type,
-    COUNT(property_id) AS portfolio_size,
     ROUND(AVG(price), 2) AS avg_price,
-    ROUND(AVG(price / size_sqft), 2) AS avg_price_per_sqft,
-    ROW_NUMBER() OVER (PARTITION BY property_type ORDER BY COUNT(property_id) DESC) AS volume_rank_by_type,
-    RANK() OVER (ORDER BY AVG(price) DESC) AS overall_price_rank,
-    DENSE_RANK() OVER (ORDER BY COUNT(property_id) DESC) AS portfolio_size_rank
-FROM 
-    dubai_properties
-GROUP BY 
-    developer_name, 
-    property_type
-HAVING 
-    COUNT(property_id) >= 2
-ORDER BY 
-    property_type, 
-    portfolio_size DESC;
-
-
--- 8.6 Property Position Within Location Market
--- OBJECTIVE: Show each property's position within its location's price range
--- TECHNIQUE: ROW_NUMBER() + PERCENT_RANK()-like calculation
--- USE CASE: Identify under/overpriced properties in specific locations
-SELECT 
-    property_id,
-    location,
-    price,
-    bedrooms,
-    ROUND(AVG(price) OVER (PARTITION BY location), 2) AS location_avg_price,
-    ROUND(MIN(price) OVER (PARTITION BY location), 2) AS location_min_price,
-    ROUND(MAX(price) OVER (PARTITION BY location), 2) AS location_max_price,
-    ROW_NUMBER() OVER (PARTITION BY location ORDER BY price DESC) AS price_position_in_location,
-    CASE 
-        WHEN price > (AVG(price) OVER (PARTITION BY location)) * 1.2 THEN 'Premium Priced'
-        WHEN price < (AVG(price) OVER (PARTITION BY location)) * 0.8 THEN 'Bargain Opportunity'
-        ELSE 'Market Average'
-    END AS price_positioning
-FROM 
-    dubai_properties
-WHERE 
-    location IN (SELECT location FROM dubai_properties GROUP BY location HAVING COUNT(*) >= 15)
-ORDER BY 
-    location, 
-    price DESC;
-
-
--- 8.7 Cumulative Market Share Analysis
--- OBJECTIVE: Track cumulative market value distribution by developer
--- TECHNIQUE: ROW_NUMBER() + SUM() as running total
--- USE CASE: Identify market concentration and top developers' dominance
-WITH developer_market_value AS (
-    SELECT 
-        developer_name,
-        COUNT(property_id) AS property_count,
-        ROUND(SUM(price) / 1000000, 2) AS market_value_millions,
-        RANK() OVER (ORDER BY SUM(price) DESC) AS market_rank
-    FROM 
-        dubai_properties
-    GROUP BY 
-        developer_name
-)
-SELECT 
-    developer_name,
-    market_rank,
-    property_count,
-    market_value_millions,
-    ROUND(
-        100.0 * SUM(market_value_millions) OVER (ORDER BY market_rank) / 
-        (SELECT SUM(market_value_millions) FROM developer_market_value),
-        2
-    ) AS cumulative_market_share_percent
-FROM 
-    developer_market_value
-ORDER BY 
-    market_rank
-LIMIT 10;
-
-
--- 8.8 Competitive Positioning by Property Type & Price Segment
--- OBJECTIVE: Rank properties against peers in same type and price range
--- TECHNIQUE: ROW_NUMBER() with multi-level PARTITION BY
--- USE CASE: Compare similar properties to identify premium features
-SELECT 
-    property_id,
-    property_type,
-    bedrooms,
-    price,
-    size_sqft,
-    ROUND(price / size_sqft, 2) AS price_per_sqft,
-    ROW_NUMBER() OVER (PARTITION BY property_type, bedrooms ORDER BY price DESC) AS rank_in_category,
-    RANK() OVER (PARTITION BY property_type, bedrooms ORDER BY price / size_sqft DESC) AS efficiency_rank,
-    COUNT(*) OVER (PARTITION BY property_type, bedrooms) AS total_in_category
-FROM 
-    dubai_properties
-WHERE 
-    property_type IN ('Apartment', 'Villa')
-    AND bedrooms IN (2, 3, 4)
-    AND status = 'Ready'
-ORDER BY 
-    property_type, 
-    bedrooms, 
-    rank_in_category;
-
-
--- 8.9 Market Tier Segmentation with NTILE()
--- OBJECTIVE: Divide locations into equal performance tiers
--- TECHNIQUE: NTILE(3) for tertile analysis
--- USE CASE: Strategic investment planning by market tier
-SELECT 
-    location,
-    ROUND(SUM(price) / 1000000, 2) AS total_market_value,
     COUNT(property_id) AS listing_count,
-    ROUND(AVG(price), 2) AS avg_price,
-    NTILE(3) OVER (ORDER BY AVG(price) DESC) AS performance_tier,
-    CASE 
-        WHEN NTILE(3) OVER (ORDER BY AVG(price) DESC) = 1 THEN 'Premium Market'
-        WHEN NTILE(3) OVER (ORDER BY AVG(price) DESC) = 2 THEN 'Growing Market'
-        ELSE 'Emerging Market'
-    END AS market_segment
+    DENSE_RANK() OVER (ORDER BY AVG(price) DESC) AS market_tier
 FROM 
     dubai_properties
 GROUP BY 
@@ -500,31 +314,140 @@ GROUP BY
 HAVING 
     COUNT(property_id) >= 10
 ORDER BY 
-    performance_tier,
-    avg_price DESC;
+    market_tier;
 
 
--- 8.10 Cross-Emirate Competitive Ranking
--- OBJECTIVE: Compare property rankings between Dubai and Abu Dhabi
--- TECHNIQUE: ROW_NUMBER() with emirate partition
--- USE CASE: Identify competitive pricing differences between markets
+-- 8.4 ROW_NUMBER() - Ranking by Property Type
+-- OBJECTIVE: Rank properties within each property type by price
+SELECT 
+    property_id,
+    property_type,
+    bedrooms,
+    price,
+    ROUND(price / size_sqft, 2) AS price_per_sqft,
+    ROW_NUMBER() OVER (PARTITION BY property_type ORDER BY price DESC) AS rank_in_type
+FROM 
+    dubai_properties
+WHERE 
+    property_type IN ('Apartment', 'Villa')
+ORDER BY 
+    property_type,
+    rank_in_type;
+
+
+-- 8.5 RANK() - Developer Performance Ranking
+-- OBJECTIVE: Rank developers by total portfolio size (number of properties)
+SELECT 
+    developer_name,
+    COUNT(property_id) AS total_properties,
+    ROUND(SUM(price) / 1000000, 2) AS total_portfolio_millions,
+    RANK() OVER (ORDER BY COUNT(property_id) DESC) AS volume_rank
+FROM 
+    dubai_properties
+GROUP BY 
+    developer_name
+ORDER BY 
+    volume_rank
+LIMIT 10;
+
+
+-- 8.6 DENSE_RANK() - Price Segment Classification
+-- OBJECTIVE: Segment properties by price range into categories
+-- Using price quartiles: Budget, Standard, Premium, Luxury
+SELECT 
+    property_id,
+    location,
+    bedrooms,
+    price,
+    DENSE_RANK() OVER (ORDER BY price) AS price_position,
+    CASE 
+        WHEN DENSE_RANK() OVER (ORDER BY price) <= 25 THEN 'Budget'
+        WHEN DENSE_RANK() OVER (ORDER BY price) <= 50 THEN 'Standard'
+        WHEN DENSE_RANK() OVER (ORDER BY price) <= 75 THEN 'Premium'
+        ELSE 'Luxury'
+    END AS price_segment
+FROM 
+    dubai_properties
+WHERE 
+    status = 'Ready'
+ORDER BY 
+    price;
+
+
+-- 8.7 ROW_NUMBER() - Top Developer in Each Location
+-- OBJECTIVE: Find the top developer (by property count) in each location
+SELECT 
+    location,
+    developer_name,
+    COUNT(property_id) AS property_count,
+    ROW_NUMBER() OVER (PARTITION BY location ORDER BY COUNT(property_id) DESC) AS rank_in_location
+FROM 
+    dubai_properties
+GROUP BY 
+    location,
+    developer_name
+ORDER BY 
+    location,
+    rank_in_location;
+
+
+-- 8.8 RANK() - Bedroom Count Ranking by Price
+-- OBJECTIVE: Rank different bedroom configurations by average price
+SELECT 
+    bedrooms,
+    COUNT(property_id) AS property_count,
+    ROUND(AVG(price), 2) AS avg_price,
+    RANK() OVER (ORDER BY AVG(price) DESC) AS price_rank_by_bedrooms
+FROM 
+    dubai_properties
+WHERE 
+    bedrooms IS NOT NULL
+GROUP BY 
+    bedrooms
+ORDER BY 
+    price_rank_by_bedrooms;
+
+
+-- 8.9 DENSE_RANK() - Cross-Emirate Location Comparison
+-- OBJECTIVE: Compare locations across Dubai and Abu Dhabi using ranking
 SELECT 
     emirate,
     location,
-    property_type,
     ROUND(AVG(price), 2) AS avg_price,
     COUNT(property_id) AS listing_count,
-    ROW_NUMBER() OVER (PARTITION BY emirate ORDER BY AVG(price) DESC) AS emirate_rank,
-    RANK() OVER (ORDER BY AVG(price) DESC) AS cross_emirate_rank
+    DENSE_RANK() OVER (PARTITION BY emirate ORDER BY AVG(price) DESC) AS emirate_rank
 FROM (
-    SELECT 'Dubai' AS emirate, location, property_type, price FROM dubai_properties
+    SELECT 'Dubai' AS emirate, location, price FROM dubai_properties
     UNION ALL
-    SELECT 'Abu Dhabi' AS emirate, location, property_type, price FROM abudhabi_properties
+    SELECT 'Abu Dhabi' AS emirate, location, price FROM abudhabi_properties
 )
 GROUP BY 
-    emirate, location, property_type
+    emirate,
+    location
 HAVING 
     COUNT(property_id) >= 5
 ORDER BY 
-    emirate, 
+    emirate,
     emirate_rank;
+
+
+-- 8.10 ROW_NUMBER() - Property Status Ranking
+-- OBJECTIVE: Rank ready properties by price within each location
+-- to identify premium available options
+SELECT 
+    property_id,
+    location,
+    property_type,
+    bedrooms,
+    price,
+    status,
+    ROW_NUMBER() OVER (PARTITION BY location ORDER BY price DESC) AS premium_rank
+FROM 
+    dubai_properties
+WHERE 
+    status = 'Ready'
+    AND bedrooms >= 2
+ORDER BY 
+    location,
+    premium_rank
+LIMIT 50;
