@@ -266,7 +266,7 @@ LIMIT 10;
 -- ====================================================================
 
 -- 8.1 ROW_NUMBER() - Top Properties by Price in Each Location
--- OBJECTIVE: Identify top 3 most expensive properties in each location
+-- OBJECTIVE: Rank each property by price within its location
 SELECT 
     property_id,
     location,
@@ -275,46 +275,36 @@ SELECT
     ROW_NUMBER() OVER (PARTITION BY location ORDER BY price DESC) AS price_rank
 FROM 
     dubai_properties
-WHERE 
-    status = 'Ready'
 ORDER BY 
     location, 
     price_rank;
 
 
--- 8.2 RANK() - Developer Ranking by Average Price
--- OBJECTIVE: Rank developers based on their average property price
+-- 8.2 RANK() - Properties Ranked by Price
+-- OBJECTIVE: Rank all properties by their price (with ties)
 SELECT 
-    developer_name,
-    COUNT(property_id) AS properties_count,
-    ROUND(AVG(price), 2) AS avg_price,
-    RANK() OVER (ORDER BY AVG(price) DESC) AS price_rank
+    property_id,
+    property_type,
+    price,
+    bedrooms,
+    RANK() OVER (ORDER BY price DESC) AS price_rank
 FROM 
     dubai_properties
-GROUP BY 
-    developer_name
-HAVING 
-    COUNT(property_id) >= 5
 ORDER BY 
     price_rank;
 
 
--- 8.3 DENSE_RANK() - Market Tier Classification
--- OBJECTIVE: Classify locations into market tiers (Tier 1, 2, 3, etc.)
--- Using DENSE_RANK to avoid gaps in ranking
+-- 8.3 DENSE_RANK() - Properties Ranked by Price
+-- OBJECTIVE: Rank all properties by price without gaps
 SELECT 
+    property_id,
     location,
-    ROUND(AVG(price), 2) AS avg_price,
-    COUNT(property_id) AS listing_count,
-    DENSE_RANK() OVER (ORDER BY AVG(price) DESC) AS market_tier
+    price,
+    DENSE_RANK() OVER (ORDER BY price DESC) AS price_rank
 FROM 
     dubai_properties
-GROUP BY 
-    location
-HAVING 
-    COUNT(property_id) >= 10
 ORDER BY 
-    market_tier;
+    price_rank;
 
 
 -- 8.4 ROW_NUMBER() - Ranking by Property Type
@@ -328,126 +318,90 @@ SELECT
     ROW_NUMBER() OVER (PARTITION BY property_type ORDER BY price DESC) AS rank_in_type
 FROM 
     dubai_properties
-WHERE 
-    property_type IN ('Apartment', 'Villa')
 ORDER BY 
     property_type,
     rank_in_type;
 
 
--- 8.5 RANK() - Developer Performance Ranking
--- OBJECTIVE: Rank developers by total portfolio size (number of properties)
+-- 8.5 RANK() - Rank All Properties by Location
+-- OBJECTIVE: Rank properties by location average price
 SELECT 
-    developer_name,
-    COUNT(property_id) AS total_properties,
-    ROUND(SUM(price) / 1000000, 2) AS total_portfolio_millions,
-    RANK() OVER (ORDER BY COUNT(property_id) DESC) AS volume_rank
+    property_id,
+    location,
+    price,
+    RANK() OVER (ORDER BY price DESC) AS overall_rank
 FROM 
     dubai_properties
-GROUP BY 
-    developer_name
 ORDER BY 
-    volume_rank
-LIMIT 10;
+    overall_rank;
 
 
 -- 8.6 DENSE_RANK() - Price Segment Classification
--- OBJECTIVE: Segment properties by price range into categories
--- Using price quartiles: Budget, Standard, Premium, Luxury
+-- OBJECTIVE: Rank properties by price range
 SELECT 
     property_id,
     location,
     bedrooms,
     price,
-    DENSE_RANK() OVER (ORDER BY price) AS price_position,
-    CASE 
-        WHEN DENSE_RANK() OVER (ORDER BY price) <= 25 THEN 'Budget'
-        WHEN DENSE_RANK() OVER (ORDER BY price) <= 50 THEN 'Standard'
-        WHEN DENSE_RANK() OVER (ORDER BY price) <= 75 THEN 'Premium'
-        ELSE 'Luxury'
-    END AS price_segment
+    DENSE_RANK() OVER (ORDER BY price) AS price_rank
 FROM 
     dubai_properties
-WHERE 
-    status = 'Ready'
 ORDER BY 
     price;
 
 
--- 8.7 ROW_NUMBER() - Top Developer in Each Location
--- OBJECTIVE: Find the top developer (by property count) in each location
+-- 8.7 ROW_NUMBER() - Top Property in Each Location
+-- OBJECTIVE: Find the most expensive property in each location
 SELECT 
+    property_id,
     location,
-    developer_name,
-    COUNT(property_id) AS property_count,
-    ROW_NUMBER() OVER (PARTITION BY location ORDER BY COUNT(property_id) DESC) AS rank_in_location
+    property_type,
+    price,
+    ROW_NUMBER() OVER (PARTITION BY location ORDER BY price DESC) AS rank_in_location
 FROM 
     dubai_properties
-GROUP BY 
-    location,
-    developer_name
 ORDER BY 
     location,
     rank_in_location;
 
 
--- 8.8 RANK() - Bedroom Count Ranking by Price
--- OBJECTIVE: Rank different bedroom configurations by average price
-SELECT 
-    bedrooms,
-    COUNT(property_id) AS property_count,
-    ROUND(AVG(price), 2) AS avg_price,
-    RANK() OVER (ORDER BY AVG(price) DESC) AS price_rank_by_bedrooms
-FROM 
-    dubai_properties
-WHERE 
-    bedrooms IS NOT NULL
-GROUP BY 
-    bedrooms
-ORDER BY 
-    price_rank_by_bedrooms;
-
-
--- 8.9 DENSE_RANK() - Cross-Emirate Location Comparison
--- OBJECTIVE: Compare locations across Dubai and Abu Dhabi using ranking
-SELECT 
-    emirate,
-    location,
-    ROUND(AVG(price), 2) AS avg_price,
-    COUNT(property_id) AS listing_count,
-    DENSE_RANK() OVER (PARTITION BY emirate ORDER BY AVG(price) DESC) AS emirate_rank
-FROM (
-    SELECT 'Dubai' AS emirate, location, price FROM dubai_properties
-    UNION ALL
-    SELECT 'Abu Dhabi' AS emirate, location, price FROM abudhabi_properties
-)
-GROUP BY 
-    emirate,
-    location
-HAVING 
-    COUNT(property_id) >= 5
-ORDER BY 
-    emirate,
-    emirate_rank;
-
-
--- 8.10 ROW_NUMBER() - Property Status Ranking
--- OBJECTIVE: Rank ready properties by price within each location
--- to identify premium available options
+-- 8.8 RANK() - Rank Properties by Size
+-- OBJECTIVE: Rank all properties by their size in sqft
 SELECT 
     property_id,
     location,
-    property_type,
-    bedrooms,
+    size_sqft,
     price,
-    status,
-    ROW_NUMBER() OVER (PARTITION BY location ORDER BY price DESC) AS premium_rank
+    RANK() OVER (ORDER BY size_sqft DESC) AS size_rank
 FROM 
     dubai_properties
-WHERE 
-    status = 'Ready'
-    AND bedrooms >= 2
 ORDER BY 
+    size_rank;
+
+
+-- 8.9 DENSE_RANK() - Rank Properties by Bedrooms
+-- OBJECTIVE: Rank properties by number of bedrooms
+SELECT 
+    property_id,
+    bedrooms,
+    price,
+    DENSE_RANK() OVER (ORDER BY bedrooms DESC) AS bedroom_rank
+FROM 
+    dubai_properties
+ORDER BY 
+    bedroom_rank;
+
+
+-- 8.10 ROW_NUMBER() - Rank Properties in Each Bedroom Category
+-- OBJECTIVE: Rank properties within each bedroom count by price
+SELECT 
+    property_id,
+    bedrooms,
+    price,
     location,
-    premium_rank
-LIMIT 50;
+    ROW_NUMBER() OVER (PARTITION BY bedrooms ORDER BY price DESC) AS rank_in_bedroom_category
+FROM 
+    dubai_properties
+ORDER BY 
+    bedrooms,
+    rank_in_bedroom_category;
